@@ -33,15 +33,12 @@ const TodoList = ({ searchQuery }: { searchQuery: string }) => {
   }, []);
 
   const fetchTodos = async () => {
-    const { data, error } = await supabase
-      .from('todos')
-      .select()
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    try {
+      const response = await fetch('/api/todos');
+      const data = await response.json();
+      setTodos(data);
+    } catch (error) {
       console.error('Error fetching todos:', error);
-    } else {
-      setTodos(data || []);
     }
   };
 
@@ -61,12 +58,16 @@ const TodoList = ({ searchQuery }: { searchQuery: string }) => {
     }
 
     if (isEditing && editingTodoId) {
-      const { error } = await supabase
-        .from('todos')
-        .update({ content: newTodo })
-        .eq('id', editingTodoId);
+      try {
+        const response = await fetch(`/api/todos/${editingTodoId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: newTodo }),
+        });
+        const updatedTodo = await response.json();
 
-      if (!error) {
         setTodos((prevData) =>
           prevData.map((item) =>
             item.id === editingTodoId ? { ...item, content: newTodo } : item
@@ -74,16 +75,23 @@ const TodoList = ({ searchQuery }: { searchQuery: string }) => {
         );
         setIsEditing(false);
         setEditingTodoId(null);
+      } catch (error) {
+        console.error('Error updating todo:', error);
       }
     } else {
-      const { data, error } = await supabase
-        .from('todos')
-        .insert({ content: newTodo })
-        .select();
+      try {
+        const response = await fetch('/api/todos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: newTodo }),
+        });
+        const newTodoItem = await response.json();
 
-      if (error) console.error('Error fetching todos:', error);
-      else {
-        setTodos((prevTodos) => [data[0], ...prevTodos]);
+        setTodos((prevTodos) => [newTodoItem, ...prevTodos]);
+      } catch (error) {
+        console.error('Error adding todo:', error);
       }
     }
 
@@ -92,31 +100,33 @@ const TodoList = ({ searchQuery }: { searchQuery: string }) => {
   };
 
   const deleteTodo = async (id: string) => {
-    const { error } = await supabase
-      .from('todos')
-      .delete()
-      .eq('id', id)
-      .select();
-
-    if (error) console.error('Error deleting todo:', error);
-    else {
+    try {
+      await fetch(`/api/todos/${id}`, {
+        method: 'DELETE',
+      });
       setTodos((prevData) => prevData.filter((item) => item.id !== id));
+    } catch (error) {
+      console.error('Error deleting todo:', error);
     }
   };
 
   const toggleDone = async (todo: Todo) => {
     const is_completed = todo.is_completed;
-    const { error } = await supabase
-      .from('todos')
-      .update({ is_completed: !is_completed })
-      .eq('id', todo.id);
-
-    if (!error) {
+    try {
+      await fetch(`/api/todos/${todo.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_completed: !is_completed }),
+      });
       setTodos((prevData) =>
         prevData.map((item) =>
           item.id === todo.id ? { ...item, is_completed: !is_completed } : item
         )
       );
+    } catch (error) {
+      console.error('Error toggling todo:', error);
     }
   };
 
